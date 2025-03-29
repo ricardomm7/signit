@@ -1,6 +1,7 @@
+import io
+
 import fitz  # PyMuPDF
 from PIL import Image
-import io
 
 
 def pdf_to_image(pdf_path):
@@ -16,7 +17,7 @@ def pdf_to_image(pdf_path):
     return image
 
 
-def add_text_to_pdf(template_pdf_path, output_pdf_path, position, text, font_size=12, font="helv"):
+def add_text_to_pdf(template_pdf_path, output_pdf_path, position, text, font_size=12, font="helv", color="#000000"):
     """
     Insere o texto no PDF template na posição especificada e salva um novo PDF.
 
@@ -26,10 +27,22 @@ def add_text_to_pdf(template_pdf_path, output_pdf_path, position, text, font_siz
     - position: tupla (x, y) com a posição do texto.
     - text: texto a ser inserido.
     - font_size: tamanho da fonte.
-    - font: nome da fonte (ex.: "helv" para Helvetica).
+    - font: nome da fonte (apenas fontes padrão do PyMuPDF são suportadas).
+    - color: cor do texto em formato hexadecimal (ex.: "#FF0000" para vermelho).
     """
     doc = fitz.open(template_pdf_path)
     page = doc[0]
-    page.insert_text(position, text, fontsize=font_size, fontname=font, color=(0, 0, 0))
+    rgb_color = tuple(int(color[i:i + 2], 16) / 255 for i in (1, 3, 5))
+
+    # Verifica se a fonte é uma das fontes padrão do PyMuPDF
+    standard_fonts = ["helv", "cour", "times", "symbol", "zapfdingbats"]
+    if font not in standard_fonts:
+        raise ValueError(f"Font '{font}' is not supported. Use one of the standard fonts: {', '.join(standard_fonts)}")
+
+    try:
+        # Insere o texto usando uma fonte padrão
+        page.insert_text(position, text, fontsize=font_size, fontname=font, color=rgb_color)
+    except Exception as e:
+        raise ValueError(f"Error inserting text: {e}")
     doc.save(output_pdf_path)
     doc.close()
