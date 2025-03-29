@@ -118,14 +118,6 @@ jobs:
         name: signit-linux
         path: artifacts
 
-    - name: Create release bundle
-      run: |
-        mkdir release
-        mv artifacts/signit.exe release/
-        mv artifacts/signit.dmg release/
-        mv artifacts/signit release/
-        tar -czvf signit-release.tar.gz -C release .
-
     - name: Create GitHub Release
       id: create_release
       uses: actions/create-release@v1
@@ -137,12 +129,32 @@ jobs:
         draft: false
         prerelease: false
 
-    - name: Upload Release Bundle
+    - name: Upload Windows Executable
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: signit-release.tar.gz
-        asset_name: signit-release.tar.gz
-        asset_content_type: application/gzip
+        asset_path: artifacts/signit.exe
+        asset_name: signit-windows.exe
+        asset_content_type: application/octet-stream
+
+    - name: Upload Mac Executable
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: artifacts/signit.dmg
+        asset_name: signit-mac.dmg
+        asset_content_type: application/octet-stream
+
+    - name: Upload Linux Executable
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: artifacts/signit
+        asset_name: signit-linux
+        asset_content_type: application/octet-stream
