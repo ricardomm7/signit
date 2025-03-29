@@ -14,6 +14,10 @@ on:
   #  - cron: "0 3 * * *" # Executa diariamente às 02:00 UTC
   #workflow_dispatch: # Permite execução manual, se necessário
 
+permissions:
+  contents: write
+
+
 jobs:
   build:
     runs-on: ubuntu-latest
