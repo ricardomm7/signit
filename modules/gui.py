@@ -31,6 +31,7 @@ class CertificateSignerGUI:
         # Canvas para exibir a primeira página do PDF
         self.canvas = tk.Canvas(self.master, width=600, height=800, bg="gray")
         self.canvas.pack(pady=5)
+        self.canvas.bind("<Button-1>", self.on_canvas_click)
 
     def create_top_menu(self):
         top_menu = tk.Frame(self.master, bg="lightgray")
@@ -54,9 +55,62 @@ class CertificateSignerGUI:
         self.text_size_spinbox.insert(0, self.text_size)
         self.text_size_spinbox.pack(side="left", padx=5)
 
+        # Entrada para coordenadas de posição
+        tk.Label(top_menu, text="X:", bg="lightgray").pack(side="left", padx=5)
+        self.x_entry = tk.Entry(top_menu, width=5)
+        self.x_entry.pack(side="left", padx=5)
+
+        tk.Label(top_menu, text="Y:", bg="lightgray").pack(side="left", padx=5)
+        self.y_entry = tk.Entry(top_menu, width=5)
+        self.y_entry.pack(side="left", padx=5)
+
+        tk.Button(top_menu, text="Set Position", command=self.set_position_from_input).pack(side="left", padx=5)
+
         # Botão para gerar os certificados (alinhado à direita)
         tk.Button(top_menu, text="Generate Certificates", command=self.generate_certificates).pack(side="right", padx=5,
                                                                                                    pady=5)
+
+    def set_position_from_input(self):
+        # Define as coordenadas com base nos valores inseridos manualmente
+        try:
+            x = int(self.x_entry.get())
+            y = int(self.y_entry.get())
+            self.click_coords = (x, y)
+            messagebox.showinfo("Coordinates Set", f"Coordinates set to: {self.click_coords}")
+
+            # Atualiza a prévia do texto no canvas
+            self.update_preview_text_at(x, y)
+        except ValueError:
+            messagebox.showerror("Error", "Invalid coordinates. Please enter numeric values.")
+
+    def on_canvas_click(self, event):
+        # Define as coordenadas com base no clique no canvas
+        self.click_coords = (event.x, event.y)
+        messagebox.showinfo("Coordinates Selected", f"Selected coordinates: {self.click_coords}")
+
+        # Atualiza os campos de entrada com as coordenadas clicadas
+        self.x_entry.delete(0, tk.END)
+        self.x_entry.insert(0, event.x)
+        self.y_entry.delete(0, tk.END)
+        self.y_entry.insert(0, event.y)
+
+        # Atualiza a prévia do texto no canvas
+        self.update_preview_text_at(event.x, event.y)
+
+    def update_preview_text_at(self, x, y):
+        # Atualiza a prévia do texto no canvas na posição especificada
+        if self.preview_text_id:
+            self.canvas.delete(self.preview_text_id)
+        font_style = self.text_font
+        if self.text_bold.get() and self.text_italic.get():
+            font_style = "helv-bolditalic"
+        elif self.text_bold.get():
+            font_style = "helv-bold"
+        elif self.text_italic.get():
+            font_style = "helv-italic"
+        self.preview_text_id = self.canvas.create_text(
+            x, y, text="Preview Text", fill=self.text_color, font=(font_style, self.text_size)
+        )
 
     def update_text_size(self):
         # Atualiza o tamanho do texto
@@ -68,15 +122,8 @@ class CertificateSignerGUI:
 
     def update_preview_text(self):
         # Atualiza a prévia do texto no canvas
-        if self.preview_text_id:
-            font_style = self.text_font
-            if self.text_bold.get() and self.text_italic.get():
-                font_style = "helv-bolditalic"
-            elif self.text_bold.get():
-                font_style = "helv-bold"
-            elif self.text_italic.get():
-                font_style = "helv-italic"
-            self.canvas.itemconfig(self.preview_text_id, font=(font_style, self.text_size))
+        if self.click_coords:
+            self.update_preview_text_at(*self.click_coords)
 
     def select_pdf(self):
         self.template_pdf = filedialog.askopenfilename(filetypes=[("PDF Files", "*.pdf")])
@@ -103,25 +150,6 @@ class CertificateSignerGUI:
         color_code = colorchooser.askcolor(title="Choose Text Color")[1]
         if color_code:
             self.text_color = color_code
-
-    def on_canvas_click(self, event):
-        # Salva as coordenadas clicadas no canvas
-        self.click_coords = (event.x, event.y)
-        messagebox.showinfo("Coordinates Selected", f"Selected coordinates: {self.click_coords}")
-
-        # Atualiza a prévia do texto no canvas
-        if self.preview_text_id:
-            self.canvas.delete(self.preview_text_id)
-        font_style = self.text_font
-        if self.text_bold.get() and self.text_italic.get():
-            font_style = "helv-bolditalic"
-        elif self.text_bold.get():
-            font_style = "helv-bold"
-        elif self.text_italic.get():
-            font_style = "helv-italic"
-        self.preview_text_id = self.canvas.create_text(
-            event.x, event.y, text="Preview Text", fill=self.text_color, font=(font_style, self.text_size)
-        )
 
     def generate_certificates(self):
         if not self.template_pdf or self.csv_data is None or self.click_coords is None:
