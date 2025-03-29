@@ -16,7 +16,7 @@ class CertificateSignerGUI:
         # Variáveis para armazenar os caminhos e dados
         self.template_pdf = None
         self.csv_file = None
-        self.click_coords = None
+        self.click_coords = (500, 500)  # Coordenadas padrão
         self.csv_data = None
         self.text_color = "#000000"  # Cor padrão (preto)
         self.text_font = "helv"  # Fonte padrão (Helvetica)
@@ -32,6 +32,22 @@ class CertificateSignerGUI:
         self.canvas = tk.Canvas(self.master, width=600, height=800, bg="gray")
         self.canvas.pack(pady=5)
         self.canvas.bind("<Button-1>", self.on_canvas_click)
+
+        # Frame para exibir os previews
+        self.preview_frame = tk.Frame(self.master, bg="white")
+        self.preview_frame.pack(side="right", fill="both", expand=True)
+
+        self.preview_canvas = tk.Canvas(self.preview_frame, bg="white")
+        self.preview_canvas.pack(side="left", fill="both", expand=True)
+
+        self.preview_scrollbar = tk.Scrollbar(self.preview_frame, orient="vertical", command=self.preview_canvas.yview)
+        self.preview_scrollbar.pack(side="right", fill="y")
+
+        self.preview_canvas.configure(yscrollcommand=self.preview_scrollbar.set)
+        self.preview_inner_frame = tk.Frame(self.preview_canvas, bg="white")
+        self.preview_canvas.create_window((0, 0), window=self.preview_inner_frame, anchor="nw")
+
+        self.preview_inner_frame.bind("<Configure>", lambda e: self.preview_canvas.configure(scrollregion=self.preview_canvas.bbox("all")))
 
     def create_top_menu(self):
         top_menu = tk.Frame(self.master, bg="lightgray")
@@ -59,16 +75,17 @@ class CertificateSignerGUI:
         tk.Label(top_menu, text="X:", bg="lightgray").pack(side="left", padx=5)
         self.x_entry = tk.Entry(top_menu, width=5)
         self.x_entry.pack(side="left", padx=5)
+        self.x_entry.insert(0, 200)
 
         tk.Label(top_menu, text="Y:", bg="lightgray").pack(side="left", padx=5)
         self.y_entry = tk.Entry(top_menu, width=5)
         self.y_entry.pack(side="left", padx=5)
+        self.y_entry.insert(0, 200)
 
         tk.Button(top_menu, text="Set Position", command=self.set_position_from_input).pack(side="left", padx=5)
 
         # Botão para gerar os certificados (alinhado à direita)
-        tk.Button(top_menu, text="Generate Certificates", command=self.generate_certificates).pack(side="right", padx=5,
-                                                                                                   pady=5)
+        tk.Button(top_menu, text="Generate Certificates", command=self.generate_certificates).pack(side="right", padx=5, pady=5)
 
     def set_position_from_input(self):
         # Define as coordenadas com base nos valores inseridos manualmente
@@ -80,6 +97,9 @@ class CertificateSignerGUI:
 
             # Atualiza a prévia do texto no canvas
             self.update_preview_text_at(x, y)
+
+            # Atualiza os previews
+            self.update_previews()
         except ValueError:
             messagebox.showerror("Error", "Invalid coordinates. Please enter numeric values.")
 
@@ -96,6 +116,9 @@ class CertificateSignerGUI:
 
         # Atualiza a prévia do texto no canvas
         self.update_preview_text_at(event.x, event.y)
+
+        # Atualiza os previews
+        self.update_previews()
 
     def update_preview_text_at(self, x, y):
         # Atualiza a prévia do texto no canvas na posição especificada
@@ -134,6 +157,10 @@ class CertificateSignerGUI:
                 self.tk_image = ImageTk.PhotoImage(image)
                 self.canvas.config(width=self.tk_image.width(), height=self.tk_image.height())
                 self.canvas.create_image(0, 0, anchor="nw", image=self.tk_image)
+
+                # Atualizar os previews se o CSV já estiver carregado
+                if self.csv_data is not None:
+                    self.update_previews()
             except Exception as e:
                 messagebox.showerror("Error", f"Could not load PDF template: {e}")
 
@@ -143,6 +170,10 @@ class CertificateSignerGUI:
             try:
                 self.csv_data = utils.read_csv_data(self.csv_file)
                 messagebox.showinfo("CSV Loaded", f"{len(self.csv_data)} records loaded.")
+
+                # Atualizar os previews se o template PDF já estiver carregado
+                if self.template_pdf is not None:
+                    self.update_previews()
             except Exception as e:
                 messagebox.showerror("Error", f"Could not load CSV file: {e}")
 
@@ -175,6 +206,30 @@ class CertificateSignerGUI:
             except Exception as e:
                 messagebox.showerror("Error", f"Error processing certificate for {row['text']}: {e}")
         messagebox.showinfo("Done", "Certificates generated successfully!")
+
+    def update_previews(self):
+        # Limpa os previews existentes
+        for widget in self.preview_inner_frame.winfo_children():
+            widget.destroy()
+
+        # Gera e exibe os previews
+        for idx, row in self.csv_data.iterrows():
+            text_to_add = row['text']
+            try:
+                preview_image = processor.generate_preview_image(
+                    self.template_pdf, self.click_coords, text_to_add,
+                    font_size=self.text_size, font=self.text_font, color=self.text_color
+                )
+                tk_image = ImageTk.PhotoImage(preview_image)
+                label = tk.Label(self.preview_inner_frame, image=tk_image, bg="white")
+                label.image = tk_image  # Keep a reference to avoid garbage collection
+                label.pack(pady=(10, 0))  # Espaçamento superior
+
+                # Adiciona uma linha preta abaixo de cada preview
+                separator = tk.Frame(self.preview_inner_frame, height=2, bg="black", width=self.preview_canvas.winfo_width())
+                separator.pack(fill="x", pady=(10, 10))  # Espaçamento superior e inferior
+            except Exception as e:
+                tk.Label(self.preview_inner_frame, text=f"Error generating preview for {row['text']}: {e}", fg="red", bg="white").pack(pady=10)
 
 
 if __name__ == "__main__":
