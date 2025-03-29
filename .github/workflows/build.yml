@@ -92,3 +92,57 @@ jobs:
         name: signit-linux
         path: dist/signit
         if-no-files-found: error
+
+  release:
+    needs:
+      - build-windows
+      - build-mac
+      - build-linux
+    runs-on: ubuntu-latest
+    steps:
+    - name: Download Windows artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: signit-windows
+        path: artifacts
+
+    - name: Download Mac artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: signit-mac
+        path: artifacts
+
+    - name: Download Linux artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: signit-linux
+        path: artifacts
+
+    - name: Create release bundle
+      run: |
+        mkdir release
+        mv artifacts/signit.exe release/
+        mv artifacts/signit.dmg release/
+        mv artifacts/signit release/
+        tar -czvf signit-release.tar.gz -C release .
+
+    - name: Create GitHub Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: release-${{ github.run_id }}
+        release_name: Release ${{ github.run_id }}
+        draft: false
+        prerelease: false
+
+    - name: Upload Release Bundle
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: signit-release.tar.gz
+        asset_name: signit-release.tar.gz
+        asset_content_type: application/gzip
