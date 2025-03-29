@@ -7,8 +7,7 @@ on:
   pull_request:
     branches:
       - main
-
-#name: Build and Release Executable
+name: Build and Release Executable
 
 #on:
  # schedule:
@@ -42,6 +41,7 @@ jobs:
       with:
         name: signit-executable
         path: dist/signit
+        if-no-files-found: error
 
     - name: Create GitHub Release
       id: create_release
