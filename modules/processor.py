@@ -57,7 +57,7 @@ def create_name_overlay(name, font_settings, position):
     Args:
         name: Name text to add
         font_settings: Dictionary with font settings
-        position: (x, y) position in points
+        position: (x, y) position in points (the center of the text)
 
     Returns:
         Path to the temporary PDF file created
@@ -80,9 +80,19 @@ def create_name_overlay(name, font_settings, position):
         color = font_settings["color"].lstrip('#')
         c.setFillColorRGB(int(color[0:2], 16) / 255, int(color[2:4], 16) / 255, int(color[4:6], 16) / 255)
 
-    # Draw the text
+    # Calculate the width and height of the text
+    text_width = c.stringWidth(name, font_name, font_size)
+    text_height = font_size  # Height is approximately the font size for single-line text
+
+    # Get the position (center of the text)
     x, y = position
-    c.drawString(x, y, name)
+
+    # Adjust x, y so that the coordinates are the center of the text
+    x_start = x - text_width / 2
+    y_start = y - text_height / 2
+
+    # Draw the text
+    c.drawString(x_start, y_start, name)
 
     # Save the PDF
     c.save()

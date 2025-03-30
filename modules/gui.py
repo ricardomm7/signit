@@ -68,9 +68,13 @@ class CertificateSignerGUI:
         middle_frame = ttk.Frame(main_container)
         middle_frame.pack(fill=tk.BOTH, expand=True, pady=5)
 
-        # Left side: Text settings
-        text_frame = ttk.LabelFrame(middle_frame, text="Text Settings", padding="10")
-        text_frame.pack(side=tk.LEFT, fill=tk.Y, padx=5)
+        # Left side: Text settings and action buttons
+        left_side_frame = ttk.Frame(middle_frame)
+        left_side_frame.pack(side=tk.LEFT, fill=tk.Y, padx=5)
+
+        # Text settings frame
+        text_frame = ttk.LabelFrame(left_side_frame, text="Text Settings", padding="10")
+        text_frame.pack(fill=tk.X, pady=5)
 
         # Font family
         font_frame = ttk.Frame(text_frame)
@@ -125,6 +129,13 @@ class CertificateSignerGUI:
         ttk.Button(sample_frame, text="Update",
                    command=lambda: self.update_sample_name(sample_entry.get())).grid(row=0, column=2, padx=5)
 
+        # New action buttons frame below text settings
+        action_frame = ttk.LabelFrame(left_side_frame, text="Actions", padding="10")
+        action_frame.pack(fill=tk.X, pady=5)
+
+        ttk.Button(action_frame, text="Update Preview", command=self.update_preview).pack(side=tk.LEFT, padx=5, pady=5)
+        ttk.Button(action_frame, text="Generate Certificates", command=self.generate_certificates).pack(side=tk.RIGHT, padx=5, pady=5)
+
         # Right side: Preview
         preview_frame = ttk.LabelFrame(middle_frame, text="Preview", padding="10")
         preview_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=5)
@@ -144,14 +155,6 @@ class CertificateSignerGUI:
         x_scrollbar.pack(side=tk.BOTTOM, fill=tk.X)
 
         self.preview_canvas.configure(xscrollcommand=x_scrollbar.set, yscrollcommand=y_scrollbar.set)
-
-        # Bottom frame for action buttons
-        button_frame = ttk.Frame(main_container)
-        button_frame.pack(fill=tk.X, pady=10)
-
-        ttk.Button(button_frame, text="Update Preview", command=self.update_preview).pack(side=tk.LEFT, padx=5)
-        ttk.Button(button_frame, text="Generate Certificates", command=self.generate_certificates).pack(side=tk.RIGHT,
-                                                                                                        padx=5)
 
         # Bind events to update preview when settings change
         self.font_family_var.trace_add("write", lambda *args: self.update_preview())
