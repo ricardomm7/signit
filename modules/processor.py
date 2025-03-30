@@ -1,106 +1,121 @@
-import io
+# processor.py
 
-import fitz  # PyMuPDF
-from PIL import Image
+import os
+import tempfile
+
+from PyPDF2 import PdfReader, PdfWriter
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
 
 
-def pdf_to_image(pdf_path):
+def generate_certificates(pdf_template_path, names_list, font_settings, position, output_dir, output_filename=None):
     """
-    Abre o PDF e converte a primeira página em uma imagem (PIL Image)
+    Generate certificates for each name using the PDF template.
+
+    Args:
+        pdf_template_path: Path to the PDF template
+        names_list: List of names (strings)
+        font_settings: Dictionary with font settings (family, size, color)
+        position: Tuple (x, y) in PDF coordinates (origin at bottom-left)
+        output_dir: Output directory for the generated certificates
+        output_filename: Optional specific filename for the output (used for preview)
+
+    Returns:
+        List of paths to the generated certificates
     """
-    doc = fitz.open(pdf_path)
-    page = doc.load_page(0)
-    pix = page.get_pixmap()
-    img_data = pix.tobytes("png")
-    image = Image.open(io.BytesIO(img_data))
-    doc.close()
-    return image
+    generated_files = []
+
+    for i, name in enumerate(names_list):
+        # Create a PDF overlay with the name
+        overlay_pdf_path = create_name_overlay(name, font_settings, position)
+
+        # Determine output filename
+        if output_filename and len(names_list) == 1:
+            # Use specified filename (for preview)
+            output_path = os.path.join(output_dir, output_filename)
+        else:
+            # Generate filename from name
+            safe_name = "".join(c if c.isalnum() or c in " -_" else "_" for c in name)
+            output_path = os.path.join(output_dir, f"certificate_{safe_name}.pdf")
+
+        # Merge the overlay with the template
+        merge_pdfs(pdf_template_path, overlay_pdf_path, output_path)
+
+        # Remove temporary overlay file
+        if os.path.exists(overlay_pdf_path):
+            os.remove(overlay_pdf_path)
+
+        generated_files.append(output_path)
+
+    return generated_files
 
 
-def add_text_to_pdf(template_pdf_path, output_pdf_path, position, text, font_size=12, font="helv", color="#000000"):
+def create_name_overlay(name, font_settings, position):
     """
-    Insere o texto no PDF template na posição especificada e salva um novo PDF,
-    garantindo que o texto fique centralizado no ponto escolhido.
+    Create a PDF with transparent background and only the name at the specified position.
+
+    Args:
+        name: Name text to add
+        font_settings: Dictionary with font settings
+        position: (x, y) position in points
+
+    Returns:
+        Path to the temporary PDF file created
     """
-    doc = fitz.open(template_pdf_path)
-    page = doc[0]
-    rgb_color = tuple(int(color[i:i + 2], 16) / 255 for i in (1, 3, 5))
+    # Create a temporary file
+    fd, temp_path = tempfile.mkstemp(suffix='.pdf')
+    os.close(fd)
 
-    # Verifica se a fonte é uma das fontes padrão do PyMuPDF
-    standard_fonts = ["helv", "cour", "times", "symbol", "zapfdingbats"]
-    if font not in standard_fonts:
-        raise ValueError(f"Font '{font}' is not supported. Use one of the standard fonts: {', '.join(standard_fonts)}")
+    # Create a new PDF with ReportLab
+    c = canvas.Canvas(temp_path, pagesize=letter)
 
-    # Obtém a largura e altura do texto renderizado
-    text_width = page.get_text_length(text, fontname=font, fontsize=font_size)
-    text_height = font_size  # Aproximadamente o tamanho da fonte
+    # Set font properties
+    font_name = font_settings["family"]
+    font_size = font_settings["size"]
 
-    # Calcula a posição centralizada
-    x_centered = position[0] - (text_width / 2)
-    y_centered = position[1] + (text_height / 2)  # Ajuste para alinhar corretamente
+    c.setFont(font_name, font_size)
 
-    try:
-        # Insere o texto na posição ajustada
-        page.insert_text((x_centered, y_centered), text, fontsize=font_size, fontname=font, color=rgb_color)
-    except Exception as e:
-        raise ValueError(f"Error inserting text: {e}")
+    # Set text color
+    if "color" in font_settings and font_settings["color"]:
+        color = font_settings["color"].lstrip('#')
+        c.setFillColorRGB(int(color[0:2], 16) / 255, int(color[2:4], 16) / 255, int(color[4:6], 16) / 255)
 
-    doc.save(output_pdf_path)
-    doc.close()
+    # Draw the text
+    x, y = position
+    c.drawString(x, y, name)
+
+    # Save the PDF
+    c.save()
+
+    return temp_path
+
+
+def merge_pdfs(template_path, overlay_path, output_path):
     """
-    Insere o texto no PDF template na posição especificada e salva um novo PDF.
+    Merge the overlay PDF (with the name) onto the template PDF.
 
-    Parâmetros:
-    - template_pdf_path: caminho do PDF template.
-    - output_pdf_path: caminho onde o novo PDF será salvo.
-    - position: tupla (x, y) com a posição do texto.
-    - text: texto a ser inserido.
-    - font_size: tamanho da fonte.
-    - font: nome da fonte (apenas fontes padrão do PyMuPDF são suportadas).
-    - color: cor do texto em formato hexadecimal (ex.: "#FF0000" para vermelho).
+    Args:
+        template_path: Path to the template PDF
+        overlay_path: Path to the overlay PDF with the name
+        output_path: Path where to save the merged PDF
     """
-    doc = fitz.open(template_pdf_path)
-    page = doc[0]
-    rgb_color = tuple(int(color[i:i + 2], 16) / 255 for i in (1, 3, 5))
+    # Read the PDFs
+    template_pdf = PdfReader(template_path)
+    overlay_pdf = PdfReader(overlay_path)
 
-    # Verifica se a fonte é uma das fontes padrão do PyMuPDF
-    standard_fonts = ["helv", "cour", "times", "symbol", "zapfdingbats"]
-    if font not in standard_fonts:
-        raise ValueError(f"Font '{font}' is not supported. Use one of the standard fonts: {', '.join(standard_fonts)}")
+    # Create a PDF writer
+    output_pdf = PdfWriter()
 
-    try:
-        # Insere o texto usando uma fonte padrão
-        page.insert_text(position, text, fontsize=font_size, fontname=font, color=rgb_color)
-    except Exception as e:
-        raise ValueError(f"Error inserting text: {e}")
-    doc.save(output_pdf_path)
-    doc.close()
+    # Merge the first pages
+    template_page = template_pdf.pages[0]
+    overlay_page = overlay_pdf.pages[0]
 
+    # Add the overlay content to the template page
+    template_page.merge_page(overlay_page)
 
-def generate_preview_image(template_pdf_path, position, text, font_size=12, font="helv", color="#000000"):
-    """
-    Gera uma imagem de pré-visualização do certificado com o texto inserido.
-    """
-    doc = fitz.open(template_pdf_path)
-    page = doc[0]
-    rgb_color = tuple(int(color[i:i + 2], 16) / 255 for i in (1, 3, 5))
+    # Add the merged page to the output
+    output_pdf.add_page(template_page)
 
-    # Verifica se a fonte é uma das fontes padrão do PyMuPDF
-    standard_fonts = ["helv", "cour", "times", "symbol", "zapfdingbats"]
-    if font not in standard_fonts:
-        raise ValueError(f"Font '{font}' is not supported. Use one of the standard fonts: {', '.join(standard_fonts)}")
-
-    try:
-        # Insere o texto na posição
-        page.insert_text(position, text, fontsize=font_size, fontname=font, color=rgb_color)
-
-        # Converte a página em imagem
-        pix = page.get_pixmap()
-        img_data = pix.tobytes("png")
-        image = Image.open(io.BytesIO(img_data))
-    except Exception as e:
-        raise ValueError(f"Error generating preview: {e}")
-    finally:
-        doc.close()
-
-    return image
+    # Write the output file
+    with open(output_path, "wb") as f:
+        output_pdf.write(f)

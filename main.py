@@ -1,10 +1,14 @@
-from modules import gui
+# main.py
+
 import tkinter as tk
+from modules.gui import CertificateSignerGUI
+
 
 def main():
     root = tk.Tk()
-    app = gui.CertificateSignerGUI(root)
+    app = CertificateSignerGUI(root)
     root.mainloop()
+
 
 if __name__ == "__main__":
     main()
